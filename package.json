@@ -1,0 +1,18 @@
+{
+  "name": "garment-marker-layout",
+  "version": "1.0.0",
+  "description": "服装打样裁片排版系统：布面画布编辑、缺陷避让、安全间距校验、乐观锁修订与裁切清单导出",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node scripts/test-geometry.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "express": "^4.21.2"
+  }
+}

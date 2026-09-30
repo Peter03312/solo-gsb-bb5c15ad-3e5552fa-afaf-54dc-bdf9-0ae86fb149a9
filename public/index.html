@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>服装裁片排版台</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">🧵 服装裁片排版台</div>
+    <nav class="tabs">
+      <button class="tab active" data-tab="marker">排版画布</button>
+      <button class="tab" data-tab="settings">基础设置（布幅 / 缺陷 / 款型）</button>
+      <button class="tab" data-tab="cutlist">裁切清单</button>
+    </nav>
+    <div class="rev-info">
+      <span id="revBadge" class="badge">修订 #-</span>
+      <span id="lockBadge" class="badge badge-locked" style="display:none">🔒 已锁定</span>
+      <span id="dirtyBadge" class="badge badge-dirty" style="display:none">● 有未保存改动</span>
+      <span id="saveStatus" class="save-status"></span>
+    </div>
+  </header>
+
+  <!-- ============ 排版画布 ============ -->
+  <section id="tab-marker" class="tab-panel active">
+    <aside class="sidebar">
+      <div class="panel">
+        <h3>布幅</h3>
+        <div id="fabricInfo" class="muted"></div>
+      </div>
+
+      <div class="panel">
+        <h3>裁片款型（点击加入布面）</h3>
+        <div id="palette"></div>
+      </div>
+
+      <div class="panel" id="selectPanel" style="display:none">
+        <h3>选中裁片</h3>
+        <div id="selectInfo" class="muted"></div>
+        <div class="btn-row">
+          <button id="btnRotateCW" class="btn">顺时针旋转</button>
+          <button id="btnRotateCCW" class="btn">逆时针旋转</button>
+        </div>
+        <div class="btn-row">
+          <label class="inline">角度
+            <select id="angleSelect"></select>
+          </label>
+        </div>
+        <div class="btn-row">
+          <button id="btnDelete" class="btn btn-danger">移出布面</button>
+        </div>
+        <p class="hint">快捷键：R 旋转 / Delete 移出 / Esc 取消选中</p>
+      </div>
+
+      <div class="panel">
+        <h3>当前冲突（实时预览）</h3>
+        <div id="liveIssues" class="issues muted">拖动裁片即实时核对；最终以保存时服务器校验为准。</div>
+      </div>
+
+      <div class="panel">
+        <h3>保存与锁定</h3>
+        <label class="inline" style="width:100%">操作者
+          <input id="operator" type="text" placeholder="姓名 / 工号" maxlength="40" />
+        </label>
+        <div class="btn-row">
+          <button id="btnSave" class="btn btn-primary">保存版图</button>
+          <button id="btnReload" class="btn">载入新稿</button>
+        </div>
+        <div class="btn-row">
+          <button id="btnLock" class="btn btn-warn">校验并锁定</button>
+        </div>
+        <p class="hint">保存携带所见修订号；过期提交不会覆盖新稿。锁定后禁止一切改动。</p>
+      </div>
+    </aside>
+
+    <main class="canvas-wrap">
+      <canvas id="canvas" width="1000" height="720"></canvas>
+      <div class="legend">
+        <span><i class="sw" style="background:#8a5a2b"></i>布面</span>
+        <span><i class="sw" style="background:#d9534f"></i>缺陷区</span>
+        <span><i class="sw" style="background:#4f8ff7"></i>已排裁片</span>
+        <span><i class="sw" style="background:#ff3b30;border:1px dashed #fff"></i>冲突对象</span>
+        <span class="muted">单位 cm，角度为度（仅允许角度，不可翻面）</span>
+      </div>
+    </main>
+  </section>
+
+  <!-- ============ 基础设置 ============ -->
+  <section id="tab-settings" class="tab-panel">
+    <div class="settings">
+      <div class="panel">
+        <h3>布幅尺寸（cm，必须为正数）</h3>
+        <div class="form-grid">
+          <label>布幅宽（x 方向）<input id="setW" type="number" step="0.1" min="0" /></label>
+          <label>布幅高（y 方向）<input id="setH" type="number" step="0.1" min="0" /></label>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>缺陷多边形</h3>
+        <div id="defectList"></div>
+        <button id="btnAddDefect" class="btn">＋ 新增缺陷</button>
+        <p class="hint">每行一个点 <code>x,y</code>；顶点 ≥3 且不得自交。</p>
+      </div>
+
+      <div class="panel">
+        <h3>裁片款型</h3>
+        <div id="typeList"></div>
+        <button id="btnAddType" class="btn">＋ 新增款型</button>
+        <p class="hint">
+          多边形为相对定位点（旋转中心）的局部坐标；数量为正整数；安全间距为非负数；
+          允许角度为逗号分隔的度数，如 <code>0,90,180,270</code>。
+        </p>
+      </div>
+
+      <div class="panel">
+        <button id="btnSaveSettings" class="btn btn-primary">保存基础设置</button>
+        <span class="hint">改动布幅/缺陷/款型后，已摆放裁片仍按原坐标与款型重新核对。</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 裁切清单 ============ -->
+  <section id="tab-cutlist" class="tab-panel">
+    <div class="settings">
+      <div class="panel">
+        <h3>裁切清单</h3>
+        <p class="hint">保存或锁定后可导出；清单含每片的位置、角度、旋转后实际轮廓，以及未排数量。</p>
+        <button id="btnDownloadCsv" class="btn btn-primary">⬇ 下载裁切清单 CSV</button>
+      </div>
+      <div class="panel">
+        <h3>已排裁片</h3>
+        <div class="table-scroll">
+          <table id="placedTable" class="data-table">
+            <thead><tr>
+              <th>#</th><th>款型</th><th>X(cm)</th><th>Y(cm)</th><th>角度°</th><th>实际轮廓（cm）</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>数量汇总</h3>
+        <div class="table-scroll">
+          <table id="summaryTable" class="data-table">
+            <thead><tr><th>款型</th><th>需求</th><th>已排</th><th>未排</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 冲突报告弹层 -->
+  <div id="modal" class="modal" style="display:none">
+    <div class="modal-box">
+      <h3 id="modalTitle">保存被拒绝</h3>
+      <p id="modalMsg" class="muted"></p>
+      <div id="modalBody" class="modal-body"></div>
+      <div class="modal-actions">
+        <button id="modalReload" class="btn" style="display:none">载入服务器新稿</button>
+        <button id="modalClose" class="btn btn-primary">知道了</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/shared/geometry.js"></script>
+  <script src="/src/validate.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
